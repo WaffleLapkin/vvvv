@@ -25,14 +25,20 @@ where
     T: FromArgs<'a>,
     A: Iterator<Item = &'a str>,
 {
-    fn flip<L, R>(either: Result<L, R>) -> Result<R, L> {
-        match either {
-            Ok(l) => Err(l),
-            Err(r) => Ok(r),
+    let mut iter = from_args(args);
+    let mut errors = match iter.next() {
+        None => return Err(Vec::new()),
+        Some(Ok(ok)) => return Ok(ok),
+        Some(Err(err)) => vec![err],
+    };
+
+    for res in iter {
+        if let Err(err) = res {
+            errors.push(err);
         }
     }
 
-    flip(from_args(args).map(flip).collect())
+    Err(errors)
 }
 
 pub fn from_env<T, E>() -> Result<T, Vec<E>>
