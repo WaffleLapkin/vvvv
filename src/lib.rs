@@ -3,7 +3,7 @@ mod error;
 mod from_args;
 mod token;
 
-pub use error::{Error, SwitchAlreadySetError, TokenizerError, TooManyOptionsError};
+pub use error::{Error, SwitchAlreadySetError, TooManyOptionsError};
 pub use from_args::FromArgsIter;
 pub use token::{Parse, Token};
 
@@ -55,7 +55,7 @@ pub trait FromArgs<'a>: Sized {
 
 pub trait PollInit<'a> {
     type Output;
-    type Err: From<TokenizerError<'a>>;
+    type Err;
 
     fn poll_init(&mut self, token: Token<'a>) -> Result<(), Self::Err>;
 
@@ -230,8 +230,6 @@ mod tests {
                     self.term = true;
                     Ok(())
                 }
-
-                Token::Error(_) => todo!(),
             }
         }
 

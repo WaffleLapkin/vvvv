@@ -1,7 +1,5 @@
 use std::{iter::Peekable, str::Chars};
 
-use crate::TokenizerError;
-
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
 pub enum Token<'a> {
     Positional(&'a str),
@@ -14,7 +12,6 @@ pub enum Token<'a> {
         value: Option<&'a str>,
     },
     DashDash,
-    Error(TokenizerError<'a>),
 }
 
 impl<'a> Token<'a> {
