@@ -1,33 +1,49 @@
 // private, but reexported
 mod error;
+mod from_args;
 mod token;
 
 pub use error::{Error, SwitchAlreadySetError, TokenizerError, TooManyOptionsError};
+pub use from_args::FromArgsIter;
 pub use token::{Parse, Token};
 
 pub mod tr;
 
-pub fn from_args<'a, T: FromArgs<'a>>(
-    args: impl Iterator<Item = &'a str>,
-) -> Result<T, Vec<<T::Init as PollInit<'a>>::Err>> {
-    let (init, mut errs) = Token::parse(args).fold(
-        (T::initializer(), Vec::new()),
-        |(mut acc, mut vec), token| {
-            if let Err(err) = acc.poll_init(token) {
-                vec.push(err);
-            }
-            (acc, vec)
-        },
-    );
+pub fn from_args<'a, T, A>(args: A) -> FromArgsIter<'a, T, A>
+where
+    T: FromArgs<'a>,
+    A: Iterator<Item = &'a str>,
+{
+    FromArgsIter {
+        parser: Token::parse(args),
+        init: Some(T::initializer()),
+    }
+}
 
-    match init.finish() {
-        Ok(res) if errs.is_empty() => Ok(res),
-        Ok(_) => Err(errs),
-        Err(e) => {
-            errs.push(e);
-            Err(errs)
+pub fn collect_from_args<'a, T, A>(args: A) -> Result<T, Vec<<T::Init as PollInit<'a>>::Err>>
+where
+    T: FromArgs<'a>,
+    A: Iterator<Item = &'a str>,
+{
+    fn flip<L, R>(either: Result<L, R>) -> Result<R, L> {
+        match either {
+            Ok(l) => Err(l),
+            Err(r) => Ok(r),
         }
     }
+
+    flip(from_args(args).map(flip).collect())
+}
+
+pub fn from_env<T, E>() -> Result<T, Vec<E>>
+where
+    // FIXME: we probably need ToOwned here because out error borrows
+    for<'a> T: FromArgs<'a>,
+    for<'a> <T as FromArgs<'a>>::Init: PollInit<'a, Err = E>,
+{
+    use std::env;
+    let args: Vec<_> = env::args().skip(1).collect();
+    collect_from_args(args.iter().map(String::as_ref))
 }
 
 /// Type that can be created from command line arguments.
@@ -244,7 +260,7 @@ mod tests {
     #[test]
     fn expanded() {
         let args = ["-a", "a_val", "-c", "-ddd", "-d", "-b", "42"];
-        let res: Test = crate::from_args(args.iter().copied()).unwrap();
+        let res: Test = crate::collect_from_args(args.iter().copied()).unwrap();
         assert_eq!(
             res,
             Test {
