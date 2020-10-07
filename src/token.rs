@@ -1,4 +1,4 @@
-use std::{iter::Peekable, str::Chars};
+use std::{fmt::Display, iter::Peekable, str::Chars};
 
 use crate::tr::IntoOwned;
 
@@ -49,6 +49,30 @@ impl<'a> Token<'a> {
     }
 }
 
+impl Display for Token<'_> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Token::Positional(s) => f.write_str(s),
+            Token::Short { key, value } => {
+                '-'.fmt(f).and_then(|()| key.fmt(f))?;
+                if let Some(value) = value {
+                    ' '.fmt(f).and_then(|()| value.fmt(f))?;
+                }
+                Ok(())
+            }
+            Token::Long { key, value } => {
+                "--".fmt(f).and_then(|()| key.fmt(f))?;
+                if let Some(value) = value {
+                    ' '.fmt(f).and_then(|()| value.fmt(f))?;
+                }
+                Ok(())
+            }
+            Token::DashDash => "--".fmt(f),
+        }
+    }
+}
+
+#[derive(Debug)]
 pub struct Parse<'a, I: Iterator<Item = &'a str>> {
     args: Peekable<I>,
     shorts: Peekable<Chars<'a>>,
@@ -132,14 +156,20 @@ impl OwnToken {
             OwnToken::Positional(s) => Token::Positional(s.as_ref()),
             OwnToken::Short { key, value } => Token::Short {
                 key: *key,
-                value: value.as_ref().map(<_>::as_ref)
+                value: value.as_ref().map(<_>::as_ref),
             },
             OwnToken::Long { key, value } => Token::Long {
                 key: key.as_ref(),
-                value: value.as_ref().map(<_>::as_ref)
+                value: value.as_ref().map(<_>::as_ref),
             },
             OwnToken::DashDash => Token::DashDash,
         }
+    }
+}
+
+impl Display for OwnToken {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        self.borrow().fmt(f)
     }
 }
 

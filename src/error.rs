@@ -1,4 +1,4 @@
-use std::convert::Infallible;
+use std::{convert::Infallible, fmt::Display};
 
 use crate::{tr::IntoOwned, OwnToken, Token};
 
@@ -43,6 +43,26 @@ impl<'a, E> IntoOwned for Error<'a, E> {
     }
 }
 
+impl<C: Display> Display for Error<'_, C> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Error::UnknownOption(token) => write!(f, "Unknown option: `{}`", token),
+            Error::UnexpectedMulti(token) => write!(f, "Unexpected multiple options: `{}`", token),
+            Error::ExpectedValue(token) => write!(f, "Expected option with value: `{}`", token),
+            Error::UnexpectedValue(token) => write!(f, "Unexpected option with value: `{}`", token),
+            Error::ExpectedPositional(token) => {
+                write!(f, "Expected possitional argument, found: `{}`", token)
+            }
+            Error::UnexpectedPositional(token) => {
+                write!(f, "Unexpected possitional argument: `{}`", token)
+            }
+            Error::RequiredOption(opt) => write!(f, "Required option `{}` was not provided", opt),
+            Error::TooManyOptions(token) => write!(f, "Too many options: `{}`", token),
+            Error::Custom(custom) => custom.fmt(f),
+        }
+    }
+}
+
 impl<'a, E> From<Error<'a, E>> for OwnError<E> {
     fn from(x: Error<'a, E>) -> Self {
         x.into_owned()
@@ -71,9 +91,12 @@ pub enum OwnError<C = Infallible> {
     Custom(C),
 }
 
-impl<C: Clone> OwnError<C> {
+impl<C> OwnError<C> {
     /// Borrow owned error as borrowed error.
-    pub fn borrow(&self) -> Error<C> {
+    pub fn borrow(&self) -> Error<C>
+    where
+        C: Clone,
+    {
         match self {
             Self::UnknownOption(token) => Error::UnknownOption(token.borrow()),
             Self::UnexpectedMulti(token) => Error::UnexpectedMulti(token.borrow()),
@@ -86,8 +109,48 @@ impl<C: Clone> OwnError<C> {
             Self::Custom(custom) => Error::Custom(custom.clone()),
         }
     }
+
+    /// Borrow owned error as borrowed error.
+    fn borrow_(&self) -> Error<C> {
+        match self {
+            Self::UnknownOption(token) => Error::UnknownOption(token.borrow()),
+            Self::UnexpectedMulti(token) => Error::UnexpectedMulti(token.borrow()),
+            Self::ExpectedValue(token) => Error::ExpectedValue(token.borrow()),
+            Self::UnexpectedValue(token) => Error::UnexpectedValue(token.borrow()),
+            Self::ExpectedPositional(token) => Error::ExpectedPositional(token.borrow()),
+            Self::UnexpectedPositional(token) => Error::UnexpectedPositional(token.borrow()),
+            Self::RequiredOption(s) => Error::RequiredOption(*s),
+            Self::TooManyOptions(token) => Error::TooManyOptions(token.borrow()),
+            Self::Custom(_) => unreachable!(),
+        }
+    }
 }
 
+impl<C: Display> Display for OwnError<C> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        if let Self::Custom(custom) = self {
+            // Avoid cloning
+            return custom.fmt(f);
+        }
+
+        self.borrow_().fmt(f)
+    }
+}
+
+#[derive(Debug)]
 pub struct SwitchAlreadySetError;
 
+impl Display for SwitchAlreadySetError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str("Switch was already set")
+    }
+}
+
+#[derive(Debug)]
 pub struct TooManyOptionsError;
+
+impl Display for TooManyOptionsError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str("Too many options")
+    }
+}

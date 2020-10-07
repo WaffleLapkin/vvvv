@@ -3,6 +3,7 @@ use crate::{FromArgs, Parse, PollInit};
 /// Iterator over parse errors and parsed value.
 ///
 /// Created by [`from_args_iter`](crate::from_args_iter).
+#[derive(Debug)]
 pub struct FromArgsIter<'a, T: FromArgs<'a>, I: Iterator<Item = &'a str>> {
     pub(crate) parser: Parse<'a, I>,
     pub(crate) init: Option<T::Init>,
