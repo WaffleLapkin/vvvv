@@ -129,6 +129,8 @@ impl Counter for usize {
 /// ## Examples
 ///
 /// ```
+/// use vvvv::tr::IntoOwned;
+///
 /// // You can't implement `ToOwned` for Ref<'_, T> as it implements `Clone`
 /// #[derive(Debug, Clone)]
 /// struct Ref<'a, T>(&'a T);
