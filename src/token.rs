@@ -125,6 +125,24 @@ pub enum OwnToken {
     DashDash,
 }
 
+impl OwnToken {
+    /// Borrow owned token as borrowed token.
+    pub fn borrow(&self) -> Token {
+        match self {
+            OwnToken::Positional(s) => Token::Positional(s.as_ref()),
+            OwnToken::Short { key, value } => Token::Short {
+                key: *key,
+                value: value.as_ref().map(<_>::as_ref)
+            },
+            OwnToken::Long { key, value } => Token::Long {
+                key: key.as_ref(),
+                value: value.as_ref().map(<_>::as_ref)
+            },
+            OwnToken::DashDash => Token::DashDash,
+        }
+    }
+}
+
 impl IntoOwned for Token<'_> {
     type Owned = OwnToken;
 

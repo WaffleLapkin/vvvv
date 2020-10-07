@@ -71,6 +71,23 @@ pub enum OwnError<C = Infallible> {
     Custom(C),
 }
 
+impl<C: Clone> OwnError<C> {
+    /// Borrow owned error as borrowed error.
+    pub fn borrow(&self) -> Error<C> {
+        match self {
+            Self::UnknownOption(token) => Error::UnknownOption(token.borrow()),
+            Self::UnexpectedMulti(token) => Error::UnexpectedMulti(token.borrow()),
+            Self::ExpectedValue(token) => Error::ExpectedValue(token.borrow()),
+            Self::UnexpectedValue(token) => Error::UnexpectedValue(token.borrow()),
+            Self::ExpectedPositional(token) => Error::ExpectedPositional(token.borrow()),
+            Self::UnexpectedPositional(token) => Error::UnexpectedPositional(token.borrow()),
+            Self::RequiredOption(s) => Error::RequiredOption(*s),
+            Self::TooManyOptions(token) => Error::TooManyOptions(token.borrow()),
+            Self::Custom(custom) => Error::Custom(custom.clone()),
+        }
+    }
+}
+
 pub struct SwitchAlreadySetError;
 
 pub struct TooManyOptionsError;
