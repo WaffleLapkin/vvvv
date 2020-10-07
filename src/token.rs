@@ -119,10 +119,10 @@ impl IntoOwned for Token<'_> {
     }
 }
 
-// If next value in iterator doesn't start with '-' returns Some(next), otherwise returns None
+// If next value in iterator doesn't start with ('-' + any char) returns Some(next), otherwise returns None
 fn next_value<'a>(args: &mut Peekable<impl Iterator<Item = &'a str>>) -> Option<&'a str> {
     match args.peek() {
-        Some(&x) if !x.starts_with('-') => args.next(),
+        Some(&x) if x == "-" || !x.starts_with('-') => args.next(),
         _ => None,
     }
 }
@@ -140,6 +140,7 @@ fn ast_parse() {
         "--python",
         "48",
         "--loooong",
+        "-",
         "-okk",
         "--",
         "--option",
@@ -183,7 +184,7 @@ fn ast_parse() {
         },
         Token::Long {
             key: "loooong",
-            value: None,
+            value: Some("-"),
         },
         Token::Short {
             key: 'o',
