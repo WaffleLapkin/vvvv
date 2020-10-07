@@ -1,5 +1,7 @@
 use std::{iter::Peekable, str::Chars};
 
+use crate::tr::IntoOwned;
+
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
 pub enum Token<'a> {
     Positional(&'a str),
@@ -86,6 +88,34 @@ impl<'a, I: Iterator<Item = &'a str>> Iterator for Parse<'a, I> {
     fn size_hint(&self) -> (usize, Option<usize>) {
         let (lower, _) = self.args.size_hint();
         (lower / 2, None) // Upper is unknown because of -vv => [Short('v'), Short('v')]
+    }
+}
+
+
+#[derive(Debug, Clone, Eq, PartialEq)]
+pub enum OwnToken {
+    Positional(Box<str>),
+    Short {
+        key: char,
+        value: Option<Box<str>>,
+    },
+    Long {
+        key: Box<str>,
+        value: Option<Box<str>>,
+    },
+    DashDash,
+}
+
+impl IntoOwned for Token<'_> {
+    type Owned = OwnToken;
+
+    fn into_owned(self) -> Self::Owned {
+        match self {
+            Token::Positional(s) => OwnToken::Positional(s.into()),
+            Token::Short { key, value } => OwnToken::Short { key, value: value.map(Into::into) },
+            Token::Long { key, value } => OwnToken::Long { key: key.into(), value: value.map(Into::into) },
+            Token::DashDash => OwnToken::DashDash,
+        }
     }
 }
 

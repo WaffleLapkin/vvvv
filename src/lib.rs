@@ -3,11 +3,14 @@ mod error;
 mod from_args;
 mod token;
 
-pub use error::{Error, SwitchAlreadySetError, TooManyOptionsError};
+pub use error::{Error, OwnError, SwitchAlreadySetError, TooManyOptionsError};
 pub use from_args::FromArgsIter;
-pub use token::{Parse, Token};
+pub use token::{Parse, Token, OwnToken};
 
 pub mod tr;
+pub mod own;
+
+use own::{FromArgsOwned, PollInitOwned};
 
 pub fn from_args<'a, T, A>(args: A) -> FromArgsIter<'a, T, A>
 where
@@ -20,7 +23,7 @@ where
     }
 }
 
-pub fn collect_from_args<'a, T, A>(args: A) -> Result<T, Vec<<T::Init as PollInit<'a>>::Err>>
+pub fn collect_from_args<'a, T, A>(args: A) -> Result<T, Vec<crate::Error<'a, <T::Init as PollInit<'a>>::Err>>>
 where
     T: FromArgs<'a>,
     A: Iterator<Item = &'a str>,
@@ -41,15 +44,29 @@ where
     Err(errors)
 }
 
-pub fn from_env<T, E>() -> Result<T, Vec<E>>
+///
+pub fn from_env<T>() -> Result<T, Vec<OwnError<<T::OwnInit as PollInitOwned>::OwnErr>>>
 where
-    // FIXME: we probably need ToOwned here because out error borrows
-    for<'a> T: FromArgs<'a>,
-    for<'a> <T as FromArgs<'a>>::Init: PollInit<'a, Err = E>,
+    T: FromArgsOwned,
 {
     use std::env;
+    use tr::IntoOwned;
+
     let args: Vec<_> = env::args().skip(1).collect();
-    collect_from_args(args.iter().map(String::as_ref))
+    let mut iter = from_args(args.iter().map(String::as_str));
+    let mut errors = match iter.next() {
+        None => return Err(Vec::new()),
+        Some(Ok(ok)) => return Ok(ok),
+        Some(Err(err)) => vec![err.into_owned()],
+    };
+
+    for res in iter {
+        if let Err(err) = res {
+            errors.push(err.into_owned());
+        }
+    }
+
+    Err(errors)
 }
 
 /// Type that can be created from command line arguments.
@@ -63,9 +80,9 @@ pub trait PollInit<'a> {
     type Output;
     type Err;
 
-    fn poll_init(&mut self, token: Token<'a>) -> Result<(), Self::Err>;
+    fn poll_init(&mut self, token: Token<'a>) -> Result<(), crate::Error<'a, Self::Err>>;
 
-    fn finish(self) -> Result<Self::Output, Self::Err>;
+    fn finish(self) -> Result<Self::Output, crate::Error<'a, Self::Err>>;
 }
 
 #[doc(hidden)]
@@ -87,7 +104,7 @@ pub fn try_insert<T, E>(
 mod tests {
     use std::str::FromStr;
 
-    use crate::{tr::Counter, tr::Switch, try_insert, Error, FromArgs, PollInit, Token};
+    use crate::{Error, FromArgs, PollInit, Token, tr::Counter, tr::Switch, try_insert};
 
     #[derive(Debug, Eq, PartialEq)]
     struct Test {
@@ -131,12 +148,13 @@ mod tests {
         b(<i32 as FromStr>::Err),
         x(<String as FromStr>::Err),
     }
+
     impl<'a> PollInit<'a> for TestInit {
         type Output = Test;
 
-        type Err = crate::Error<'a, TestParseError>;
+        type Err = TestParseError;
 
-        fn poll_init(&mut self, token: Token<'a>) -> Result<(), Self::Err> {
+        fn poll_init(&mut self, token: Token<'a>) -> Result<(), crate::Error<'a, Self::Err>> {
             if self.term {
                 return Ok(());
             }
@@ -239,7 +257,7 @@ mod tests {
             }
         }
 
-        fn finish(self) -> Result<Self::Output, Self::Err> {
+        fn finish(self) -> Result<Self::Output, crate::Error<'a, Self::Err>> {
             match self {
                 Self { a: None, .. } => Err(Error::RequiredOption("a")),
                 Self { b: None, .. } => Err(Error::RequiredOption("b")),
@@ -275,5 +293,10 @@ mod tests {
                 x: None,
             }
         )
+    }
+
+    #[allow(dead_code)]
+    fn from_env_is_callable() {
+        let _: Test = crate::from_env().unwrap();
     }
 }

@@ -1,3 +1,5 @@
+use std::{borrow::Cow, cell, collections};
+
 use crate::{error::TooManyOptionsError, SwitchAlreadySetError};
 
 /// Represents a type which can be used as a switch flag
@@ -119,5 +121,83 @@ impl Counter for usize {
     fn inc(&mut self) -> Result<(), TooManyOptionsError> {
         *self = self.checked_add(1).ok_or(TooManyOptionsError)?;
         Ok(())
+    }
+}
+
+/// Counterpart to [`ToOwned`] for types which has borrowed data (i.e.: `Type<'_>`).
+///
+/// ## Examples
+///
+/// ```
+/// // You can't implement `ToOwned` for Ref<'_, T> as it implements `Clone`
+/// #[derive(Debug, Clone)]
+/// struct Ref<'a, T>(&'a T);
+///
+/// impl<T: Clone> IntoOwned for Ref<'_, T> {
+///     type Owned = T;
+///
+///     fn into_owned(self) -> Self::Owned {
+///         self.0.clone()
+///     }
+/// }
+/// ```
+pub trait IntoOwned {
+    type Owned;
+
+    fn into_owned(self) -> Self::Owned;
+}
+
+impl<T> IntoOwned for &T 
+where
+    T: ToOwned,
+{
+    type Owned = <T as ToOwned>::Owned;
+
+    fn into_owned(self) -> Self::Owned {
+        self.to_owned()
+    }
+}
+
+impl<T> IntoOwned for Cow<'_, T>
+where
+    T: ToOwned,
+{
+    type Owned = T::Owned;
+
+    fn into_owned(self) -> <Self as IntoOwned>::Owned {
+        self.into_owned()
+    }
+}
+
+impl<T> IntoOwned for cell::Ref<'_, T>
+where   
+    T: Clone,
+{
+    type Owned = T;
+
+    fn into_owned(self) -> Self::Owned {
+        self.clone()
+    }
+}
+
+impl<T> IntoOwned for cell::RefMut<'_, T>
+where   
+    T: Clone,
+{
+    type Owned = T;
+
+    fn into_owned(self) -> Self::Owned {
+        self.clone()
+    }
+}
+
+impl<T> IntoOwned for collections::binary_heap::PeekMut<'_, T>
+where   
+    T: Ord + Clone,
+{
+    type Owned = T;
+
+    fn into_owned(self) -> Self::Owned {
+        self.clone()
     }
 }

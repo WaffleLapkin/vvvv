@@ -10,7 +10,7 @@ where
     T: FromArgs<'a>,
     I: Iterator<Item = &'a str>,
 {
-    type Item = Result<T, <T::Init as PollInit<'a>>::Err>;
+    type Item = Result<T, crate::Error<'a, <T::Init as PollInit<'a>>::Err>>;
 
     fn next(&mut self) -> Option<Self::Item> {
         let initializer = self.init.as_mut()?;
