@@ -100,7 +100,6 @@ impl<'a, I: Iterator<Item = &'a str>> Iterator for Parse<'a, I> {
         }
 
         let token = match item {
-            "-" => unimplemented!("???"),
             "--" => {
                 self.pos_only = true;
                 Token::DashDash
@@ -112,7 +111,7 @@ impl<'a, I: Iterator<Item = &'a str>> Iterator for Parse<'a, I> {
             keys if keys.starts_with("-") => {
                 let mut chars = keys[1..].chars().peekable();
                 match (chars.next(), chars.peek()) {
-                    (None, _) => unreachable!("'-' is checked before"),
+                    (None, _) => Token::Positional("-"),
                     (Some(key), None) => Token::Short {
                         key,
                         value: next_value(&mut self.args),
@@ -204,6 +203,7 @@ fn next_value<'a>(args: &mut Peekable<impl Iterator<Item = &'a str>>) -> Option<
 fn ast_parse() {
     let args = [
         "unparsed",
+        "-",
         "-vvvv",
         "-v",
         "val",
@@ -221,6 +221,7 @@ fn ast_parse() {
     ];
     let expected = [
         Token::Positional("unparsed"),
+        Token::Positional("-"),
         Token::Short {
             key: 'v',
             value: None,
