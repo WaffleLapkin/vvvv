@@ -1,18 +1,28 @@
 use std::convert::Infallible;
 
-use crate::{OwnToken, Token, tr::IntoOwned};
+use crate::{tr::IntoOwned, OwnToken, Token};
 
+/// Error occured when parsing command line arguments.
 #[derive(Debug)]
-pub enum Error<'a, VP = Infallible> {
+pub enum Error<'a, C = Infallible> {
+    /// Unknown option. i.e. `-x` wass provided, but not expected.
     UnknownOption(Token<'a>),
+    /// Unexpected multiple options. I.e.: `--opt --opt` were provided, but `opt` is a flag.
     UnexpectedMulti(Token<'a>),
+    /// Expected value was not provided. I.e.: `-o` was provided, but `-o` option requires value (`-o value`).
     ExpectedValue(Token<'a>),
+    /// Value was provided but not expected. I.e.: `--opt value` was provided, but `--opt` is flag.
     UnexpectedValue(Token<'a>),
+    /// Expected positional argument, but option was provided. I.e. expected `positional` but `--opt` was provided.
     ExpectedPositional(Token<'a>),
+    /// Unexpected positional argument. I.e. all positional arguments are already .
     UnexpectedPositional(Token<'a>),
+    /// Requires option was not present. I.e. `-x <val>` option was required but not provided.
     RequiredOption(&'static str), // TODO: may not be strign
+    /// Too many options caused an overflow of the counter. I.e. counter type is `u8` and user provided `-vvvvvvvvvvvvvvvv -vvvvvvvvvvvvvvvv -vvvvvvvvvvvvvvvv -vvvvvvvvvvvvvvvv -vvvvvvvvvvvvvvvv -vvvvvvvvvvvvvvvv -vvvvvvvvvvvvvvvv -vvvvvvvvvvvvvvvv -vvvvvvvvvvvvvvvv -vvvvvvvvvvvvvvvv -vvvvvvvvvvvvvvvv -vvvvvvvvvvvvvvvv -vvvvvvvvvvvvvvvv -vvvvvvvvvvvvvvvv -vvvvvvvvvvvvvvvv -vvvvvvvvvvvvvvvv`.
     TooManyOptions(Token<'a>),
-    ValueParse(VP),
+    /// Custom error. Usually this represents parsing errors (e.g. `<i32 as FromStr>::Err | <PathBuf as FromStr>::Err`).
+    Custom(C),
 }
 
 impl<'a, E> IntoOwned for Error<'a, E> {
@@ -28,7 +38,7 @@ impl<'a, E> IntoOwned for Error<'a, E> {
             Error::UnexpectedPositional(t) => OwnError::UnexpectedPositional(t.into_owned()),
             Error::RequiredOption(t) => OwnError::RequiredOption(t),
             Error::TooManyOptions(t) => OwnError::TooManyOptions(t.into_owned()),
-            Error::ValueParse(t) => OwnError::ValueParse(t),
+            Error::Custom(t) => OwnError::Custom(t),
         }
     }
 }
@@ -40,16 +50,25 @@ impl<'a, E> From<Error<'a, E>> for OwnError<E> {
 }
 
 #[derive(Debug)]
-pub enum OwnError<VP = Infallible> {
+pub enum OwnError<C = Infallible> {
+    /// Unknown option. i.e. `-x` wass provided, but not expected.
     UnknownOption(OwnToken),
+    /// Unexpected multiple options. I.e.: `--opt --opt` were provided, but `opt` is a flag.
     UnexpectedMulti(OwnToken),
+    /// Expected value was not provided. I.e.: `-o` was provided, but `-o` option requires value (`-o value`).
     ExpectedValue(OwnToken),
+    /// Value was provided but not expected. I.e.: `--opt value` was provided, but `--opt` is flag.
     UnexpectedValue(OwnToken),
+    /// Expected positional argument, but option was provided. I.e. expected `positional` but `--opt` was provided.
     ExpectedPositional(OwnToken),
+    /// Unexpected positional argument. I.e. all positional arguments are already .
     UnexpectedPositional(OwnToken),
+    /// Requires option was not present. I.e. `-x <val>` option was required but not provided.
     RequiredOption(&'static str), // TODO: may not be strign
+    /// Too many options caused an overflow of the counter. I.e. counter type is `u8` and user provided `-vvvvvvvvvvvvvvvv -vvvvvvvvvvvvvvvv -vvvvvvvvvvvvvvvv -vvvvvvvvvvvvvvvv -vvvvvvvvvvvvvvvv -vvvvvvvvvvvvvvvv -vvvvvvvvvvvvvvvv -vvvvvvvvvvvvvvvv -vvvvvvvvvvvvvvvv -vvvvvvvvvvvvvvvv -vvvvvvvvvvvvvvvv -vvvvvvvvvvvvvvvv -vvvvvvvvvvvvvvvv -vvvvvvvvvvvvvvvv -vvvvvvvvvvvvvvvv -vvvvvvvvvvvvvvvv`.
     TooManyOptions(OwnToken),
-    ValueParse(VP),
+    /// Custom error. Usually this represents parsing errors (e.g. `<i32 as FromStr>::Err | <PathBuf as FromStr>::Err`).
+    Custom(C),
 }
 
 pub struct SwitchAlreadySetError;

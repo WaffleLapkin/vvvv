@@ -18,15 +18,19 @@ where
 
 /// Counterpart to [`PollInit`] which produces owned values.
 pub trait PollInitOwned
-where 
-    for<'a> Self: PollInit<'a, Output = <Self as PollInitOwned>::OwnOutput, Err = <Self as PollInitOwned>::OwnErr>,
+where
+    for<'a> Self: PollInit<
+        'a,
+        Output = <Self as PollInitOwned>::OwnOutput,
+        Err = <Self as PollInitOwned>::OwnErr,
+    >,
 {
     type OwnOutput;
     type OwnErr;
 }
 
-impl<T, O, E> PollInitOwned for T 
-where 
+impl<T, O, E> PollInitOwned for T
+where
     for<'a> T: PollInit<'a, Output = O, Err = E>,
 {
     type OwnOutput = O;

@@ -2,21 +2,41 @@ use std::{iter::Peekable, str::Chars};
 
 use crate::tr::IntoOwned;
 
+/// A single token of command line arguments.
+///
+/// Tokens can be uptained by [parsing] iterator of strings.
+///
+/// [parsing]: Token::parse
+///
+/// ## Parsing notes
+///
+/// - `-xyz` is parsed as 3 short options `x`, `y` and `z`.
+/// - `-xyz value` is parsed as 3 short options and a positional argument (If user wants to bind value to `z` it needs to write `-xy -z value`).
+/// - `-x -y` parsed as 2 short options `x` and `y`.
+/// - `-x -` is parsed as short option `x` with value `-`.
+/// - Everything after `--` token parsed as a positional.
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
 pub enum Token<'a> {
+    /// Positional argument, i.e. just `something`.
     Positional(&'a str),
+    // Short option, i.e. `-k`, `-k value`.
     Short {
         key: char,
         value: Option<&'a str>,
     },
+    // Long option, i.e. `--key`, `--key value`.
     Long {
         key: &'a str,
         value: Option<&'a str>,
     },
+    // Duble dash, i.e. `--`.
     DashDash,
 }
 
 impl<'a> Token<'a> {
+    /// Created parsing iterator.
+    ///
+    /// For parse notes see [`Token`](Token#parsing-notes)
     pub fn parse<I>(args: I) -> Parse<'a, I>
     where
         I: Iterator<Item = &'a str>,
@@ -91,7 +111,6 @@ impl<'a, I: Iterator<Item = &'a str>> Iterator for Parse<'a, I> {
     }
 }
 
-
 #[derive(Debug, Clone, Eq, PartialEq)]
 pub enum OwnToken {
     Positional(Box<str>),
@@ -112,8 +131,14 @@ impl IntoOwned for Token<'_> {
     fn into_owned(self) -> Self::Owned {
         match self {
             Token::Positional(s) => OwnToken::Positional(s.into()),
-            Token::Short { key, value } => OwnToken::Short { key, value: value.map(Into::into) },
-            Token::Long { key, value } => OwnToken::Long { key: key.into(), value: value.map(Into::into) },
+            Token::Short { key, value } => OwnToken::Short {
+                key,
+                value: value.map(Into::into),
+            },
+            Token::Long { key, value } => OwnToken::Long {
+                key: key.into(),
+                value: value.map(Into::into),
+            },
             Token::DashDash => OwnToken::DashDash,
         }
     }

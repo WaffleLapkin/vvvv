@@ -149,7 +149,7 @@ pub trait IntoOwned {
     fn into_owned(self) -> Self::Owned;
 }
 
-impl<T> IntoOwned for &T 
+impl<T> IntoOwned for &T
 where
     T: ToOwned,
 {
@@ -172,7 +172,7 @@ where
 }
 
 impl<T> IntoOwned for cell::Ref<'_, T>
-where   
+where
     T: Clone,
 {
     type Owned = T;
@@ -183,7 +183,7 @@ where
 }
 
 impl<T> IntoOwned for cell::RefMut<'_, T>
-where   
+where
     T: Clone,
 {
     type Owned = T;
@@ -194,7 +194,7 @@ where
 }
 
 impl<T> IntoOwned for collections::binary_heap::PeekMut<'_, T>
-where   
+where
     T: Ord + Clone,
 {
     type Owned = T;

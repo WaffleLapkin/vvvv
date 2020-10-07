@@ -5,14 +5,41 @@ mod token;
 
 pub use error::{Error, OwnError, SwitchAlreadySetError, TooManyOptionsError};
 pub use from_args::FromArgsIter;
-pub use token::{Parse, Token, OwnToken};
+pub use token::{OwnToken, Parse, Token};
 
-pub mod tr;
 pub mod own;
+pub mod tr;
+
+use std::env;
 
 use own::{FromArgsOwned, PollInitOwned};
+use tr::IntoOwned;
 
-pub fn from_args<'a, T, A>(args: A) -> FromArgsIter<'a, T, A>
+/// Creates `T` from `Iterator<Item = &str>`.
+///
+/// Returns first error, if any has accured.
+///
+/// Note: First element of the iteratpr is **not** ignored. If you are using [`env::args`] use `.skip(1)`.
+pub fn from_args<'a, T, A>(args: A) -> Result<T, Error<'a, <T::Init as PollInit<'a>>::Err>>
+where
+    T: FromArgs<'a>,
+    A: Iterator<Item = &'a str>,
+{
+    from_args_iter(args)
+        .next()
+        // `FromArgsIter` always has at least 1 evlement
+        .unwrap()
+}
+
+/// Creates [`FromArgsIter`] from `Iterator<Item = &str>`.
+///
+/// The iterator will return all (if any) accured errors followed by result of `T::finish`.
+///
+/// Note: First element of the `args` iterator is **not** ignored.
+/// If you are using [`env::args`] use `.skip(1)`.
+///
+/// For more easy-to-use function see [`from_args`](from_args()), [`collect_from_args`] and [`from_env`]
+pub fn from_args_iter<'a, T, A>(args: A) -> FromArgsIter<'a, T, A>
 where
     T: FromArgs<'a>,
     A: Iterator<Item = &'a str>,
@@ -23,12 +50,19 @@ where
     }
 }
 
-pub fn collect_from_args<'a, T, A>(args: A) -> Result<T, Vec<crate::Error<'a, <T::Init as PollInit<'a>>::Err>>>
+/// Creates `T` from `Iterator<Item = &str>`.
+///
+/// Returns all errors, if any has accured.
+///
+/// Note: First element of the iteratpr is **not** ignored. If you are using [`env::args`] use `.skip(1)`.
+pub fn collect_from_args<'a, T, A>(
+    args: A,
+) -> Result<T, Vec<crate::Error<'a, <T::Init as PollInit<'a>>::Err>>>
 where
     T: FromArgs<'a>,
     A: Iterator<Item = &'a str>,
 {
-    let mut iter = from_args(args);
+    let mut iter = from_args_iter(args);
     let mut errors = match iter.next() {
         None => return Err(Vec::new()),
         Some(Ok(ok)) => return Ok(ok),
@@ -44,16 +78,18 @@ where
     Err(errors)
 }
 
+/// Creates `T` from [`env::args`].
 ///
+/// ## Notes
+///
+/// 1. Executable path is ignored.
+/// 2. `T` can't borrow anything from args.
 pub fn from_env<T>() -> Result<T, Vec<OwnError<<T::OwnInit as PollInitOwned>::OwnErr>>>
 where
     T: FromArgsOwned,
 {
-    use std::env;
-    use tr::IntoOwned;
-
     let args: Vec<_> = env::args().skip(1).collect();
-    let mut iter = from_args(args.iter().map(String::as_str));
+    let mut iter = from_args_iter(args.iter().map(String::as_str));
     let mut errors = match iter.next() {
         None => return Err(Vec::new()),
         Some(Ok(ok)) => return Ok(ok),
@@ -70,18 +106,30 @@ where
 }
 
 /// Type that can be created from command line arguments.
+///
+/// To create implementator of this trait, use [`from_args`](from_args()), [`from_args_iter`], [`collect_from_args`] or [`from_env`].
 pub trait FromArgs<'a>: Sized {
+    /// Initializer of this type which holds possibly uninitialized data.
     type Init: PollInit<'a, Output = Self>;
 
+    /// Returns initializer of this type.
     fn initializer() -> Self::Init;
 }
 
+/// Polling initializer of type `Self::Output`.
 pub trait PollInit<'a> {
+    /// Type beeing initialized.
     type Output;
+
+    /// Type of errors which may happen additionally to [`vvvv::Error`](crate::Error)
     type Err;
 
+    /// Sink `token` to progress in initializing `Self::Output`.
     fn poll_init(&mut self, token: Token<'a>) -> Result<(), crate::Error<'a, Self::Err>>;
 
+    /// Finish the initialization.
+    ///
+    /// Returns error if output type can't be created from given tokens.
     fn finish(self) -> Result<Self::Output, crate::Error<'a, Self::Err>>;
 }
 
@@ -104,7 +152,7 @@ pub fn try_insert<T, E>(
 mod tests {
     use std::str::FromStr;
 
-    use crate::{Error, FromArgs, PollInit, Token, tr::Counter, tr::Switch, try_insert};
+    use crate::{tr::Counter, tr::Switch, try_insert, Error, FromArgs, PollInit, Token};
 
     #[derive(Debug, Eq, PartialEq)]
     struct Test {
@@ -168,7 +216,7 @@ mod tests {
                     &mut self.a,
                     || {
                         v.parse()
-                            .map_err(|err| Error::ValueParse(TestParseError::a(err)))
+                            .map_err(|err| Error::Custom(TestParseError::a(err)))
                     },
                     || {
                         crate::Error::UnexpectedMulti(Token::Short {
@@ -185,7 +233,7 @@ mod tests {
                     &mut self.b,
                     || {
                         v.parse()
-                            .map_err(|err| Error::ValueParse(TestParseError::b(err)))
+                            .map_err(|err| Error::Custom(TestParseError::b(err)))
                     },
                     || {
                         crate::Error::UnexpectedMulti(Token::Short {
@@ -237,7 +285,7 @@ mod tests {
                     || {
                         v.parse()
                             .map(Some)
-                            .map_err(|err| Error::ValueParse(TestParseError::x(err)))
+                            .map_err(|err| Error::Custom(TestParseError::x(err)))
                     },
                     || {
                         crate::Error::UnexpectedMulti(Token::Short {
