@@ -7,13 +7,20 @@ pub use error::{Error, OwnError, SwitchAlreadySetError, TooManyOptionsError};
 pub use from_args::FromArgsIter;
 pub use token::{OwnToken, Parse, Token};
 
+pub mod help;
 pub mod own;
 pub mod tr;
+
+pub(crate) mod dumb_wrap;
 
 use std::env;
 
 use own::{FromArgsOwned, PollInitOwned};
 use tr::IntoOwned;
+
+use crate::help::Description;
+
+// TODO: subcommands?...
 
 /// Creates `T` from `Iterator<Item = &str>`.
 ///
@@ -109,6 +116,8 @@ where
 ///
 /// To create implementator of this trait, use [`from_args`](from_args()), [`from_args_iter`], [`collect_from_args`] or [`from_env`].
 pub trait FromArgs<'a>: Sized {
+    const DESCRIPTION: Description<'static>;
+
     /// Initializer of this type which holds possibly uninitialized data.
     type Init: PollInit<'a, Output = Self>;
 
@@ -152,7 +161,10 @@ pub fn try_insert<T, E>(
 mod tests {
     use std::str::FromStr;
 
-    use crate::{tr::Counter, tr::Switch, try_insert, Error, FromArgs, PollInit, Token};
+    use crate::{
+        help::Description, help::Kind, help::Opt, help::Required, tr::Counter, tr::Switch,
+        try_insert, Error, FromArgs, PollInit, Token,
+    };
 
     #[derive(Debug, Eq, PartialEq)]
     struct Test {
@@ -165,6 +177,58 @@ mod tests {
 
     // Imagine it's generated via derive
     impl<'a> FromArgs<'a> for Test {
+        const DESCRIPTION: Description<'static> = Description::Typed {
+            descr: "Test command",
+            usage: "test -a <val> -b <val> [-c] [-d...] [-x <val>]",
+            positionals: &[],
+            options: &[
+                Opt {
+                    short: Some('a'),
+                    long: None,
+                    kind: Kind::Value {
+                        name: None,
+                        default: None,
+                    },
+                    descr: "raw",
+                    required: Required::Required,
+                },
+                Opt {
+                    short: Some('b'),
+                    long: None,
+                    kind: Kind::Value {
+                        name: None,
+                        default: None,
+                    },
+                    descr: "parse",
+                    required: Required::Required,
+                },
+                Opt {
+                    short: Some('c'),
+                    long: None,
+                    kind: Kind::Flag,
+                    descr: "switch/flag",
+                    required: Required::Optional,
+                },
+                Opt {
+                    short: Some('d'),
+                    long: None,
+                    kind: Kind::Count,
+                    descr: "count",
+                    required: Required::Required,
+                },
+                Opt {
+                    short: Some('x'),
+                    long: None,
+                    kind: Kind::Value {
+                        name: None,
+                        default: Some("None"),
+                    },
+                    descr: "optional",
+                    required: Required::Optional,
+                },
+            ],
+        };
+
         type Init = TestInit;
 
         fn initializer() -> Self::Init {
@@ -347,4 +411,55 @@ mod tests {
     fn from_env_is_callable() {
         let _: Test = crate::from_env().unwrap();
     }
+
+    // #[test]
+    // fn print_demo() {
+    //     use crate::help::Pos;
+    //     use std::time::Duration;
+    //
+    //     let descr = Description::Typed {
+    //         descr: "This is a pretty long description I need to test wrapping everywhere.........................",
+    //         usage: "tttt <pos1> <pet_name> [-x] [-v...] [-o <val>]",
+    //         positionals: &[
+    //             Pos {
+    //                 name: "pos1",
+    //                 descr: "just really boring description without any capital letters, nothing to see here!",
+    //             },
+    //             Pos {
+    //                 name: "pet_name",
+    //                 descr: "name of your pet",
+    //             },
+    //         ],
+    //         options: &[
+    //             Opt {
+    //                 short: Some('x'),
+    //                 long: Some("xor"),
+    //                 kind: Kind::Flag,
+    //                 descr: "xorxorxorxorxorxorxorxor xorxorxorxor",
+    //                 required: Required::Optional,
+    //             },
+    //             Opt {
+    //                 short: Some('v'),
+    //                 long: Some("verbose"),
+    //                 kind: Kind::Count,
+    //                 descr: "verbosity level",
+    //                 required: Required::Optional,
+    //             },
+    //             Opt {
+    //                 short: Some('o'),
+    //                 long: Some("ooo"),
+    //                 kind: Kind::Value { default: Some("default-value") },
+    //                 descr: "yet another long description (()(((()(()()))))) to test text wrap aaannn eeee rovler xeimcrvijm",
+    //                 required: Required::Optional,
+    //             },
+    //         ],
+    //     };
+
+    //     for limit in (40..80).chain((40..80).rev()).cycle() {
+    //         print!("\x1B[2J\x1B[1;1H\n");
+    //         dbg!(limit);
+    //         descr.print(Some(limit)).unwrap();
+    //         std::thread::sleep(Duration::from_millis(170));
+    //     }
+    // }
 }

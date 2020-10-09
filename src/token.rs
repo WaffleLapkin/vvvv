@@ -108,7 +108,7 @@ impl<'a, I: Iterator<Item = &'a str>> Iterator for Parse<'a, I> {
                 key: &key[2..],
                 value: next_value(&mut self.args),
             },
-            keys if keys.starts_with("-") => {
+            keys if keys.starts_with('-') => {
                 let mut chars = keys[1..].chars().peekable();
                 match (chars.next(), chars.peek()) {
                     (None, _) => Token::Positional("-"),
