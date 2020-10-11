@@ -24,7 +24,7 @@ use crate::help::Description;
 
 /// Creates `T` from `Iterator<Item = &str>`.
 ///
-/// Returns first error, if any has accured.
+/// Returns first error, if any has occured.
 ///
 /// Note: First element of the iteratpr is **not** ignored. If you are using [`env::args`] use `.skip(1)`.
 pub fn from_args<'a, T, A>(args: A) -> Result<T, Error<'a, <T::Init as PollInit<'a>>::Err>>
@@ -40,7 +40,7 @@ where
 
 /// Creates [`FromArgsIter`] from `Iterator<Item = &str>`.
 ///
-/// The iterator will return all (if any) accured errors followed by result of `T::finish`.
+/// The iterator will return all (if any) occured errors followed by result of `T::finish`.
 ///
 /// Note: First element of the `args` iterator is **not** ignored.
 /// If you are using [`env::args`] use `.skip(1)`.
@@ -59,7 +59,7 @@ where
 
 /// Creates `T` from `Iterator<Item = &str>`.
 ///
-/// Returns all errors, if any has accured.
+/// Returns all errors, if any has occured.
 ///
 /// Note: First element of the iteratpr is **not** ignored. If you are using [`env::args`] use `.skip(1)`.
 pub fn collect_from_args<'a, T, A>(
